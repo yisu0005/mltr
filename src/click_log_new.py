@@ -27,22 +27,24 @@ def get_random_idx(lengthA, query0_num):
     return sorted(query0_idx)
 
 
-def make_click(queries, eta, eps_plus, eps_minus):
-
-    for i in range(len(queries)):
-        query_rank(queries[i])
+def make_click(queries, eta, eps_plus, eps_minus, sweep):
 
     for query in queries:
+        query_rank(query)
         for doc in query.docs:
             propensity = get_propensity(doc.rank, eta)
             doc.add_cost(1.0 / propensity)
-            obs = draw_prob(propensity)
-            if obs and doc.rel == 1:
-                doc.add_click(int(draw_prob(eps_plus)))
-            elif obs and doc.rel == 0:
-                doc.add_click(int(draw_prob(eps_minus)))
-            else:
-                doc.add_click(0)
+
+    for i in range(sweep):
+        for query in queries:
+            for doc in query.docs:
+                obs = draw_prob(1.0 / doc.cost)
+                if obs and doc.rel == 1:
+                    if draw_prob(eps_plus):
+                        doc.add_click()
+                elif obs and doc.rel == 0:
+                    if draw_prob(eps_minus):
+                        doc.add_click()
 
 
 def single_doc(queries):
@@ -55,11 +57,12 @@ def single_doc(queries):
     newqueries = []
     for i in range(len(queries)):
         for j in range(len(queries[i].docs)):
-            if queries[i].docs[j].click == 1:
-                q = copy.deepcopy(tempqueries[i])
-                q.docs[j].add_click(1)
-                newqueries.append(q)
-
+            cnt = queries[i].docs[j].click
+            if cnt > 0:
+                for i in range(cnt):
+                    q = copy.deepcopy(tempqueries[i])
+                    q.docs[j].set_click(1)
+                    newqueries.append(q)
     clickid = 1
     for query in newqueries:
         query.add_clickid(clickid)
@@ -159,7 +162,7 @@ def delete_noclick(queries):
     for query in queries:
         allclick = False
         for doc in query.docs:
-            if doc.click == 1:
+            if doc.click > 0:
                 allclick = True
                 break
         if allclick:

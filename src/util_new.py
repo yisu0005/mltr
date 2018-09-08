@@ -25,6 +25,7 @@ class Document(object):
     def __init__(self, rel, feature):
         self.rel = rel
         self.feature = feature
+        self.click = 0
 
     # Recommendation: get_score / set_score
     def add_score(self, score):
@@ -33,8 +34,11 @@ class Document(object):
     def add_rank(self, rank):
         self.rank = rank
 
-    def add_click(self, click):
+    def set_click(self, click):
         self.click = click
+
+    def add_click(self):
+        self.click += 1
 
     # the following two function are same; maybe set_cost?
     def add_cost(self, cost):

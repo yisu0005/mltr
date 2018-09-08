@@ -20,12 +20,13 @@ eps_minus=0.1
 # declare -a rankerB_way=("all" "lastone" "portion")
 declare -a rankerB_way=("lastone")
 train_data='data/input/set1bin.train.txt'
+traintime_data='data/input/set1bin.traintime.txt'
 val_data='data/input/set1bin.valid.txt'
 test_data='data/input/set1bin.test.txt'
 
 declare -i val_size
 val_size=${train_size}/5
-ranker_dict='data/expt'/${rankerA}_${rankerB}_${overlap}
+ranker_dict='data/expt/learning'/${rankerA}_${rankerB}_${overlap}
 iter_dict=${ranker_dict}/${eta}_${eps_minus}_${train_size}/${r}/${i}
 output_dict=${iter_dict}
 
@@ -58,17 +59,21 @@ svmprop_classify='svm_proprank/svm_proprank_classify'
 
 #${python} -m src.build_test ${test_data} ${output_dict} ${testfile_name}
 
-${python} -m src.util ${train_data} ${iter_dict} -pr ${rankerA} ${rankerB} ${overlap}
-
-${svm_learn} -c 2 ${iter_dict}/rankerA_query.txt ${iter_dict}/modelA.dat > /dev/null
-# ${svm_learn} -c 200 ${iter_dict}/rankerB_query.txt ${iter_dict}/modelB.dat > /dev/null
-
-${svm_classify} ${train_data} ${iter_dict}/modelA.dat ${iter_dict}/predictionsA.txt
+# ${python} -m src.util ${train_data} ${iter_dict} -n 'rankerA_query' 'rankerC_query' 'left_query' ⁠⁠\
+#                                               -pr ${rankerA} ${rankerB} ${overlap}
+# ${python} -m src.util ${traintime_data} ${iter_dict} -n 'rankerB_query' 'rankerD_query' 'left_query'⁠⁠\
+#                                               -pr ${rankerA} ${rankerB} ${overlap}
+#
+# ${svm_learn} -c 2 ${iter_dict}/rankerA_query.txt ${iter_dict}/modelA.dat > /dev/null
+# ${svm_learn} -c 2 ${iter_dict}/rankerB_query.txt ${iter_dict}/modelB.dat > /dev/null
+#
+# ${svm_classify} ${train_data} ${iter_dict}/modelA.dat ${iter_dict}/predictionsA.txt
 # ${svm_classify} ${train_data} ${iter_dict}/modelB.dat ${iter_dict}/predictionsB.txt
-
-${svm_classify} ${val_data} ${iter_dict}/modelA.dat ${iter_dict}/val_predictionsA.txt
+#
+# ${svm_classify} ${val_data} ${iter_dict}/modelA.dat ${iter_dict}/val_predictionsA.txt
 # ${svm_classify} ${val_data} ${iter_dict}/modelB.dat ${iter_dict}/val_predictionsB.txt
-${python} -m ltr.BuildRankerB ${iter_dict}/rankerA_query.txt ${train_data} ${val_data} ${iter_dict} predictionsB.txt val_predictionsB.txt
+
+# ${python} -m ltr.BuildRankerB ${iter_dict}/rankerA_query.txt ${train_data} ${val_data} ${iter_dict} predictionsB.txt val_predictionsB.txt
 
 ${python} -m src.click_log ${train_data} ${iter_dict}/predictionsA.txt ${iter_dict}/predictionsB.txt \
                        ${r} ${output_dict} ${prop_file} ${bal_prop_file} ${clip_prop_file} ${clipbal_prop_file} -e ${eta} \

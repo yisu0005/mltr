@@ -19,7 +19,7 @@ run()
 }
 
 
-for train_size in 50; do
+for train_size in 5000; do
   for r in 2; do
     for i in $(seq 1 1); do
       run "sh ./train.sh $train_size $i $r"
