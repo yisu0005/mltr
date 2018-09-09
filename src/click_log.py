@@ -21,28 +21,29 @@ def get_propensity(rank, eta):
 
 
 def get_random_idx(lengthA, query0_num):
-    print(lengthA)
     assert query0_num <= lengthA
     query0_idx = random.sample(range(lengthA), k=query0_num)
     return sorted(query0_idx)
 
 
-def make_click(queries, eta, eps_plus, eps_minus):
-
-    for i in range(len(queries)):
-        query_rank(queries[i])
+def make_click(queries, eta, eps_plus, eps_minus, sweep):
 
     for query in queries:
+        query_rank(query)
         for doc in query.docs:
             propensity = get_propensity(doc.rank, eta)
-            doc.add_cost(1.0 / propensity)
-            obs = draw_prob(propensity)
-            if obs and doc.rel == 1:
-                doc.add_click(int(draw_prob(eps_plus)))
-            elif obs and doc.rel == 0:
-                doc.add_click(int(draw_prob(eps_minus)))
-            else:
-                doc.add_click(0)
+            doc.set_cost(1.0 / propensity)
+
+    for i in range(sweep):
+        for query in queries:
+            for doc in query.docs:
+                obs = draw_prob(1.0/doc.cost)
+                if obs and doc.rel == 1:
+                    if draw_prob(eps_plus):
+                        doc.add_click()
+                elif obs and doc.rel == 0:
+                    if draw_prob(eps_minus):
+                        doc.add_click()
 
 
 def single_doc(queries):
@@ -55,10 +56,12 @@ def single_doc(queries):
     newqueries = []
     for i in range(len(queries)):
         for j in range(len(queries[i].docs)):
-            if queries[i].docs[j].click == 1:
-                q = copy.deepcopy(tempqueries[i])
-                q.docs[j].add_click(1)
-                newqueries.append(q)
+            cnt = queries[i].docs[j].click
+            if cnt > 0:
+                for t in range(cnt):
+                    q = copy.deepcopy(tempqueries[i])
+                    q.docs[j].set_click(1)
+                    newqueries.append(q)
 
     clickid = 1
     for query in newqueries:
@@ -87,8 +90,8 @@ def balance_prop(queriesA, queriesB, n1, n2):
             propA, propB = 1.0/doc_a.cost, 1.0/doc_b.cost
             prop = (n1 * propA + n2 * propB) / (n1 + n2)
             cost = 1.0 / prop
-            doc_a.change_cost(cost)
-            doc_b.change_cost(cost)
+            doc_a.set_cost(cost)
+            doc_b.set_cost(cost)
     with open('clickrank.txt', 'w') as fout:
         for qa, qb in zip(queriesAnew, queriesBnew):
             docs_a, docs_b = qa.docs, qb.docs
@@ -110,8 +113,8 @@ def clip_prop(queriesA, queriesB, c):
         for doc_a, doc_b in zip(docs_a, docs_b):
             propA, propB = max(1.0/doc_a.cost, c), max(1.0/doc_b.cost, c)
             costA, costB = 1.0/propA, 1.0/propB
-            doc_a.change_cost(costA)
-            doc_b.change_cost(costB)
+            doc_a.set_cost(costA)
+            doc_b.set_cost(costB)
     return queriesAnew, queriesBnew
 
 
@@ -218,17 +221,22 @@ def reverse_scores(scores):
 
 def build_rel_queryB(queriesA, change_option):
     queriesB = copy.deepcopy(queriesA)
-    # IDEA: put the computation of rel_indices & rel_scores ahead
+    rel_indices_ls = []
+    rel_scores_ls = []
+    for i in range(len(queriesA)):
+        rel_indices = []
+        rel_scores = []
+        for j in range(len(queriesA[i].docs)):
+            if queriesA[i].docs[j].rel == 1:
+                rel_indices.append(j)
+                rel_scores.append(queriesA[i].docs[j].score)
+        rel_indices_ls.append(rel_indices)
+        rel_scores_ls.append(rel_scores)
+
     if change_option == 'lastone':
         for i in range(len(queriesA)):
-            rel_indices = []
-            rel_scores = []
-            # print("total len: {}".format(len(queriesB[i].docs)))
-            for j in range(len(queriesA[i].docs)):
-                if queriesA[i].docs[j].rel == 1:
-                    rel_indices.append(j)
-                    rel_scores.append(queriesA[i].docs[j].score)
-                    # print(queriesB[i].docs[j].rank)
+            rel_indices = rel_indices_ls[i]
+            rel_scores = rel_scores_ls[i]
             if rel_scores:
                 max_idx = np.argmax(rel_scores)
                 min_idx = np.argmin(rel_scores)
@@ -236,30 +244,18 @@ def build_rel_queryB(queriesA, change_option):
                 queriesB[i].docs[rel_indices[max_idx]].add_score(min_val)
                 queriesB[i].docs[rel_indices[min_idx]].add_score(max_val)
     elif change_option == 'all':
-            for i in range(len(queriesA)):
-                rel_indices = []
-                rel_scores = []
-                # print("total len: {}".format(len(queriesB[i].docs)))
-                for j in range(len(queriesA[i].docs)):
-                    if queriesA[i].docs[j].rel == 1:
-                        rel_indices.append(j)
-                        rel_scores.append(queriesA[i].docs[j].score)
-                        # print(queriesB[i].docs[j].rank)
-                if rel_scores:
-                    rev_scores = reverse_scores(rel_scores)
-                    for k in range(len(rel_indices)):
-                        queriesB[i].docs[rel_indices[k]].add_score(rev_scores[k])
+        for i in range(len(queriesA)):
+            rel_indices = rel_indices_ls[i]
+            rel_scores = rel_scores_ls[i]
+            if rel_scores:
+                rev_scores = reverse_scores(rel_scores)
+                for k in range(len(rel_indices)):
+                    queriesB[i].docs[rel_indices[k]].add_score(rev_scores[k])
     elif change_option == 'portion':
         PORTION = 0.8
         for i in range(len(queriesA)):
-            rel_indices = []
-            rel_scores = []
-            # print("total len: {}".format(len(queriesB[i].docs)))
-            for j in range(len(queriesA[i].docs)):
-                if queriesA[i].docs[j].rel == 1:
-                    rel_indices.append(j)
-                    rel_scores.append(queriesA[i].docs[j].score)
-                    # print(queriesB[i].docs[j].rank)
+            rel_indices = rel_indices_ls[i]
+            rel_scores = rel_scores_ls[i]
             if rel_scores:
                 order = np.argsort(rel_scores)
                 num = int(len(order) * (1 - PORTION))
@@ -271,14 +267,6 @@ def build_rel_queryB(queriesA, change_option):
                 rev_new_scores = reverse_scores(new_scores)
                 for k in range(len(new_rel_indices)):
                     queriesB[i].docs[new_rel_indices[k]].add_score(rev_new_scores[k])
-    # for i in range(len(queriesB)):
-    #     query_rank(queriesB[i])
-    # print("queryB")
-    # for i in range(len(queriesB)):
-    #     print("total len: {}".format(len(queriesB[i].docs)))
-    #     for j in range(len(queriesA[i].docs)):
-    #         if queriesB[i].docs[j].rel == 1:
-    #             print(queriesB[i].docs[j].rank)
     return queriesB
 
 def click_diagonistic(queryA, queryB):
@@ -319,12 +307,13 @@ def main():
     parser.add_argument('-m', '--eps_minus', help='negative click noise', type=float)
     parser.add_argument('-a', '--query0', help='number of clicks from first query', type=int)
     parser.add_argument('-b', '--query1', help='number of clicks from second query', type=int)
+    parser.add_argument('-s', '--sweep', help='number of sweeps', type=int)
     FLAGS, unparsed = parser.parse_known_args()
     print('Building clicked logs. ')
     start = timeit.default_timer()
 
     queriesA = read_docs(FLAGS.query_path, FLAGS.ranker0_path)
-    make_click(queriesA, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus)
+    make_click(queriesA, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus,FLAGS.sweep)
     delqueriesA = delete_noclick(queriesA)
     newqueryA = single_doc(delqueriesA)
     idxA = get_random_idx(len(newqueryA), FLAGS.query0)
@@ -342,18 +331,18 @@ def main():
             print("build ranker B with percentage of training data")
             queriesB = read_docs(FLAGS.query_path, FLAGS.ranker1_path)
 
-        make_click(queriesB, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus)
+        make_click(queriesB, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus, FLAGS.sweep)
         delqueriesB = delete_noclick(queriesB)
         newqueryB = single_doc(delqueriesB)
         idxB = get_random_idx(len(newqueryB), FLAGS.query1)
 
         subqueryA = [newqueryA[i] for i in idxA]
         subqueryB = [newqueryB[i] for i in idxB]
-        with open('clickresultnaive.txt', 'w') as fout:
-            for query in subqueryA:
-                for doc in query.docs:
-                    if doc.click == 1:
-                        fout.write("{}\n".format(1.0/doc.cost))
+        # with open('clickresultnaive.txt', 'w') as fout:
+        #     for query in subqueryA:
+        #         for doc in query.docs:
+        #             if doc.click == 1:
+        #                 fout.write("{}\n".format(1.0/doc.cost))
 
         save_propfile(os.path.join(FLAGS.output_dict, rankerB_way), FLAGS.name_prop, subqueryA, subqueryB)
         prop_before = get_prop_diagnostic(subqueryA, subqueryB)
@@ -367,11 +356,11 @@ def main():
         new_bal_queriesB = single_doc(del_bal_queriesB)
         bal_subqueryA = [new_bal_queriesA[i] for i in idxA]
         bal_subqueryB = [new_bal_queriesB[i] for i in idxB]
-        with open('clickresultbal.txt', 'w') as fout:
-            for query in bal_subqueryA:
-                for doc in query.docs:
-                    if doc.click == 1:
-                        fout.write("{}\n".format(1.0/doc.cost))
+        # with open('clickresultbal.txt', 'w') as fout:
+        #     for query in bal_subqueryA:
+        #         for doc in query.docs:
+        #             if doc.click == 1:
+        #                 fout.write("{}\n".format(1.0/doc.cost))
         prop_after = get_prop_diagnostic(bal_subqueryA, bal_subqueryB)
         save_propfile(os.path.join(FLAGS.output_dict, rankerB_way), FLAGS.name_bal, bal_subqueryA, bal_subqueryB)
 
@@ -383,11 +372,11 @@ def main():
         new_clip_queriesB = single_doc(del_clip_queriesB)
         clip_subqueryA = [new_clip_queriesA[i] for i in idxA]
         clip_subqueryB = [new_clip_queriesB[i] for i in idxB]
-        with open('clickresultclip.txt', 'w') as fout:
-            for query in clip_subqueryA:
-                for doc in query.docs:
-                    if doc.click == 1:
-                        fout.write("{}\n".format(1.0/doc.cost))
+        # with open('clickresultclip.txt', 'w') as fout:
+        #     for query in clip_subqueryA:
+        #         for doc in query.docs:
+        #             if doc.click == 1:
+        #                 fout.write("{}\n".format(1.0/doc.cost))
         prop_after_clip = get_prop_diagnostic(clip_subqueryA, clip_subqueryB)
         save_propfile(os.path.join(FLAGS.output_dict, rankerB_way), FLAGS.name_clip, clip_subqueryA, clip_subqueryB)
 
@@ -399,11 +388,11 @@ def main():
         new_clipbal_queriesB = single_doc(del_clipbal_queriesB)
         clipbal_subqueryA = [new_clipbal_queriesA[i] for i in idxA]
         clipbal_subqueryB = [new_clipbal_queriesB[i] for i in idxB]
-        with open('clickresultclipbal.txt', 'w') as fout:
-            for query in clipbal_subqueryA:
-                for doc in query.docs:
-                    if doc.click == 1:
-                        fout.write("{}\n".format(1.0/doc.cost))
+        # with open('clickresultclipbal.txt', 'w') as fout:
+        #     for query in clipbal_subqueryA:
+        #         for doc in query.docs:
+        #             if doc.click == 1:
+        #                 fout.write("{}\n".format(1.0/doc.cost))
         prop_after_clipbal = get_prop_diagnostic(clipbal_subqueryA, clipbal_subqueryB)
         save_propfile(os.path.join(FLAGS.output_dict, rankerB_way), FLAGS.name_clipbal, clipbal_subqueryA, clipbal_subqueryB)
 

@@ -14,14 +14,13 @@ def read_clickdocs(querypath, scorepath):
                 newid = int(info[1][4:])
                 newdoc = Document(int(info[0]), info[2])
                 newdoc.add_score(float(scores[i].rstrip()))
-                newdoc.add_click(0)
             elif int(lines[i][0]) == 1:
                 info = lines[i].split(" ", 3)
                 newid = int(info[1][4:])
                 newdoc = Document(int(info[0]), info[3])
                 newdoc.add_score(float(scores[i].rstrip()))
-                newdoc.add_click(1)
-                newdoc.add_cost(float(info[2][5:]))
+                newdoc.set_click(1)
+                newdoc.set_cost(float(info[2][5:]))
             if newid not in ids:
                 ids.add(newid)
                 newquery = Query(newid)
@@ -39,7 +38,6 @@ def ips_avg_rank(queries):
         for doc in query.docs:
             if doc.click == 1:
                 result += doc.cost * doc.rank
-                # num += 1
     return result/num
 
 def main():

@@ -18,30 +18,30 @@ class Query(object):
 
     def del_clicks(self):
         for doc in self.docs:
-            doc.add_click(0)
+            doc.set_click(0)
 
 
 class Document(object):
     def __init__(self, rel, feature):
         self.rel = rel
         self.feature = feature
+        self.click = 0
 
-    # Recommendation: get_score / set_score
     def add_score(self, score):
         self.score = score
 
     def add_rank(self, rank):
         self.rank = rank
 
-    def add_click(self, click):
+    def set_click(self, click):
         self.click = click
 
-    # the following two function are same; maybe set_cost?
-    def add_cost(self, cost):
+    def add_click(self):
+        self.click += 1
+
+    def set_cost(self, cost):
         self.cost = cost
 
-    def change_cost(self, newcost):
-        self.cost = newcost
 
 
 def random_draw(rankerA_prec, rankerB_prec, overlap, index):
