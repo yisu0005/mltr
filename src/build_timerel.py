@@ -2,6 +2,11 @@ import argparse
 import numpy as np
 import timeit
 
+'''
+Build additional training dataset by running a linear model with relevance and top 20 features (mimic the behaviour that rank depends on the time relevance).
+'''
+
+
 def get_data(file_loc):
 	start = timeit.default_timer()
 	f = open(file_loc, 'r')
@@ -25,8 +30,6 @@ def get_data(file_loc):
 		for i in range(cur_idx, feat_len):
 			new_arr.append(0.0)
 		data.append(new_arr)
-		# if len(data) == 1000:
-		# 	break
 	end = timeit.default_timer()
 	print("finished reading data: {}".format(end-start))
 	f.close()
@@ -66,8 +69,6 @@ def save_time_rel(path, data, time_rel):
 			fout.write("{} qid:{} {}\n".format(time_rel[i], int(data[i][1]), temp_str))
 	end = timeit.default_timer()
 	print("finished writing data: {}".format(end-start))
-
-
 
 
 

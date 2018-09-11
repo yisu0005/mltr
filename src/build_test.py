@@ -1,11 +1,14 @@
 from .click_log import *
 
+'''
+Translate original test file to the click data format
+'''
 
 def make_click_asrel(queries):
     newqueries = copy.deepcopy(queries)
     for query in newqueries:
         for doc in query.docs:
-            doc.add_click(int(doc.rel))
+            doc.set_click(int(doc.rel))
     return newqueries
 
 

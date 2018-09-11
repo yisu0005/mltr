@@ -2,6 +2,10 @@ import copy
 import numpy as np
 from .util import *
 
+'''
+Build click logs based on click model
+'''
+
 def query_rank(query):
     scores = []
     for i in range(len(query.docs)):
@@ -92,13 +96,6 @@ def balance_prop(queriesA, queriesB, n1, n2):
             cost = 1.0 / prop
             doc_a.set_cost(cost)
             doc_b.set_cost(cost)
-    with open('clickrank.txt', 'w') as fout:
-        for qa, qb in zip(queriesAnew, queriesBnew):
-            docs_a, docs_b = qa.docs, qb.docs
-            assert len(docs_a) == len(docs_b)
-            for doc_a, doc_b in zip(docs_a, docs_b):
-                if doc_a.click == 1 or doc_b.click == 1:
-                    fout.write("{} and {}\n".format(doc_a.rank, doc_b.rank))
 
     return queriesAnew, queriesBnew
 
@@ -162,7 +159,7 @@ def delete_noclick(queries):
     for query in queries:
         allclick = False
         for doc in query.docs:
-            if doc.click == 1:
+            if doc.click > 0:
                 allclick = True
                 break
         if allclick:
@@ -313,14 +310,11 @@ def main():
     start = timeit.default_timer()
 
     queriesA = read_docs(FLAGS.query_path, FLAGS.ranker0_path)
-    make_click(queriesA, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus,FLAGS.sweep)
-    delqueriesA = delete_noclick(queriesA)
-    newqueryA = single_doc(delqueriesA)
-    idxA = get_random_idx(len(newqueryA), FLAGS.query0)
+    # idxA = get_random_idx(len(newqueryA), FLAGS.query0)
 
 
-    # for rankerB_way in ['lastone', 'all', 'portion']:
-    for rankerB_way in ['lastone']:
+    for rankerB_way in ['lastone', 'all', 'portion']:
+    # for rankerB_way in ['portion']:
         if FLAGS.ranker1_rel == 1:
             print("build rel ranker B")
             queriesB = build_rel_queryB(queriesA, rankerB_way)
@@ -334,10 +328,16 @@ def main():
         make_click(queriesB, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus, FLAGS.sweep)
         delqueriesB = delete_noclick(queriesB)
         newqueryB = single_doc(delqueriesB)
-        idxB = get_random_idx(len(newqueryB), FLAGS.query1)
 
-        subqueryA = [newqueryA[i] for i in idxA]
-        subqueryB = [newqueryB[i] for i in idxB]
+        make_click(queriesA, FLAGS.eta, FLAGS.eps_plus, FLAGS.eps_minus,FLAGS.sweep)
+        delqueriesA = delete_noclick(queriesA)
+        newqueryA = single_doc(delqueriesA)
+        # idxB = get_random_idx(len(newqueryB), FLAGS.query1)
+
+        # subqueryA = [newqueryA[i] for i in idxA]
+        # subqueryB = [newqueryB[i] for i in idxB]
+        subqueryA = newqueryA
+        subqueryB = newqueryB
         # with open('clickresultnaive.txt', 'w') as fout:
         #     for query in subqueryA:
         #         for doc in query.docs:
@@ -354,8 +354,10 @@ def main():
         del_bal_queriesB = delete_noclick(bal_queriesB)
         new_bal_queriesA = single_doc(del_bal_queriesA)
         new_bal_queriesB = single_doc(del_bal_queriesB)
-        bal_subqueryA = [new_bal_queriesA[i] for i in idxA]
-        bal_subqueryB = [new_bal_queriesB[i] for i in idxB]
+        # bal_subqueryA = [new_bal_queriesA[i] for i in idxA]
+        # bal_subqueryB = [new_bal_queriesB[i] for i in idxB]
+        bal_subqueryA = new_bal_queriesA
+        bal_subqueryB = new_bal_queriesB
         # with open('clickresultbal.txt', 'w') as fout:
         #     for query in bal_subqueryA:
         #         for doc in query.docs:
@@ -370,8 +372,10 @@ def main():
         del_clip_queriesB = delete_noclick(clip_queriesB)
         new_clip_queriesA = single_doc(del_clip_queriesA)
         new_clip_queriesB = single_doc(del_clip_queriesB)
-        clip_subqueryA = [new_clip_queriesA[i] for i in idxA]
-        clip_subqueryB = [new_clip_queriesB[i] for i in idxB]
+        # clip_subqueryA = [new_clip_queriesA[i] for i in idxA]
+        # clip_subqueryB = [new_clip_queriesB[i] for i in idxB]
+        clip_subqueryA = new_clip_queriesA
+        clip_subqueryB = new_clip_queriesB
         # with open('clickresultclip.txt', 'w') as fout:
         #     for query in clip_subqueryA:
         #         for doc in query.docs:
@@ -386,8 +390,10 @@ def main():
         del_clipbal_queriesB = delete_noclick(clipbal_queriesB)
         new_clipbal_queriesA = single_doc(del_clipbal_queriesA)
         new_clipbal_queriesB = single_doc(del_clipbal_queriesB)
-        clipbal_subqueryA = [new_clipbal_queriesA[i] for i in idxA]
-        clipbal_subqueryB = [new_clipbal_queriesB[i] for i in idxB]
+        # clipbal_subqueryA = [new_clipbal_queriesA[i] for i in idxA]
+        # clipbal_subqueryB = [new_clipbal_queriesB[i] for i in idxB]
+        clipbal_subqueryA = new_clipbal_queriesA
+        clipbal_subqueryB = new_clipbal_queriesB
         # with open('clickresultclipbal.txt', 'w') as fout:
         #     for query in clipbal_subqueryA:
         #         for doc in query.docs:
@@ -401,6 +407,7 @@ def main():
     print("Finished building clicked logs.")
     print("Diagnostic checking: naive propensities: {}; balanced propensities: {}".format(prop_before, prop_after))
     print('Running time: {:.3f}s.'.format(end - start))
+
 
 if __name__ == '__main__':
     main()
