@@ -6,7 +6,8 @@ else
   python="/Users/yisu/anaconda/envs/mltr/bin/python"
 fi
 
-train_size=$1
+train_size=10
+sweep=$1
 i=$2
 r=$3
 
@@ -15,19 +16,18 @@ rankerB=0.01
 overlap=0
 eta=0.8
 eps_plus=1.0
-eps_minus=0.1
+eps_minus=0
 
-# declare -a rankerB_way=("all" "lastone" "portion")
-declare -a rankerB_way=("lastone")
+declare -a rankerB_way=("all" "lastone" "portion")
 train_data='data/input/set1bin.train.txt'
-traintime_data='data/input/set1bin.traintime.txt'
+# traintime_data='data/input/set1bin.traintime.txt'
 val_data='data/input/set1bin.valid.txt'
-test_data='data/input/set1bin.test.txt'
+# test_data='data/input/set1bin.test.txt'
 
 declare -i val_size
 val_size=${train_size}/5
 ranker_dict='data/expt/learning'/${rankerA}_${rankerB}_${overlap}
-iter_dict=${ranker_dict}/${eta}_${eps_minus}_${train_size}/${r}/${i}
+iter_dict=${ranker_dict}/${eta}_${eps_minus}_${sweep}/${r}/${i}
 output_dict=${iter_dict}
 
 testfile_name='set1bin.newtest.txt'
@@ -57,37 +57,37 @@ svmprop_learn='svm_proprank/svm_proprank_learn'
 svmprop_classify='svm_proprank/svm_proprank_classify'
 
 
-#${python} -m src.build_test ${test_data} ${output_dict} ${testfile_name}
+# ${python} -m src.build_test ${test_data} ${output_dict} ${testfile_name}
 
-# ${python} -m src.util ${train_data} ${iter_dict} -n 'rankerA_query' 'rankerC_query' 'left_query' ⁠⁠\
-#                                               -pr ${rankerA} ${rankerB} ${overlap}
+${python} -m src.util ${train_data} ${iter_dict} -n 'rankerA_query' 'rankerB_query' 'left_query' ⁠⁠\
+                                              -pr ${rankerA} ${rankerB} ${overlap}
 # ${python} -m src.util ${traintime_data} ${iter_dict} -n 'rankerB_query' 'rankerD_query' 'left_query'⁠⁠\
 #                                               -pr ${rankerA} ${rankerB} ${overlap}
-#
-# ${svm_learn} -c 2 ${iter_dict}/rankerA_query.txt ${iter_dict}/modelA.dat > /dev/null
-# ${svm_learn} -c 2 ${iter_dict}/rankerB_query.txt ${iter_dict}/modelB.dat > /dev/null
-#
-# ${svm_classify} ${train_data} ${iter_dict}/modelA.dat ${iter_dict}/predictionsA.txt
-# ${svm_classify} ${train_data} ${iter_dict}/modelB.dat ${iter_dict}/predictionsB.txt
-#
-# ${svm_classify} ${val_data} ${iter_dict}/modelA.dat ${iter_dict}/val_predictionsA.txt
-# ${svm_classify} ${val_data} ${iter_dict}/modelB.dat ${iter_dict}/val_predictionsB.txt
+
+${svm_learn} -c 2 ${iter_dict}/rankerA_query.txt ${iter_dict}/modelA.dat > /dev/null
+${svm_learn} -c 2 ${iter_dict}/rankerB_query.txt ${iter_dict}/modelB.dat > /dev/null
+
+${svm_classify} ${train_data} ${iter_dict}/modelA.dat ${iter_dict}/predictionsA.txt
+${svm_classify} ${train_data} ${iter_dict}/modelB.dat ${iter_dict}/predictionsB.txt
+
+${svm_classify} ${val_data} ${iter_dict}/modelA.dat ${iter_dict}/val_predictionsA.txt
+${svm_classify} ${val_data} ${iter_dict}/modelB.dat ${iter_dict}/val_predictionsB.txt
 
 # ${python} -m ltr.BuildRankerB ${iter_dict}/rankerA_query.txt ${train_data} ${val_data} ${iter_dict} predictionsB.txt val_predictionsB.txt
 
 ${python} -m src.click_log ${train_data} ${iter_dict}/predictionsA.txt ${iter_dict}/predictionsB.txt \
                        ${r} ${output_dict} ${prop_file} ${bal_prop_file} ${clip_prop_file} ${clipbal_prop_file} -e ${eta} \
-                       -p ${eps_plus} -m ${eps_minus} -a ${train_size} -b ${train_size}
+                       -p ${eps_plus} -m ${eps_minus} -a ${train_size} -b ${train_size} -s ${sweep}
 
 ${python} -m src.click_log ${val_data} ${iter_dict}/val_predictionsA.txt ${iter_dict}/val_predictionsB.txt \
                        ${r} ${output_dict} ${val_prop_file} ${val_bal_prop_file} ${val_clip_prop_file} ${val_clipbal_prop_file} -e ${eta} \
-                       -p ${eps_plus} -m ${eps_minus} -a ${val_size} -b ${val_size}
+                       -p ${eps_plus} -m ${eps_minus} -a ${val_size} -b ${val_size} -s ${sweep}
 
 
 for method in "${rankerB_way[@]}"
   do
     res_dict=${output_dict}/${method}
-    c_list="0.001 0.01 0.1 1.0 10.0"
+    c_list="0.01 0.1 1.0"
     for c in ${c_list}
     do
        ${svmprop_learn} -c ${c} ${res_dict}/${prop_file} ${res_dict}/${prop_model}_${c}.dat > /dev/null
@@ -100,10 +100,10 @@ for method in "${rankerB_way[@]}"
        ${svmprop_classify} ${res_dict}/${val_prop_file} ${res_dict}/${clip_prop_model}_${c}.dat ${res_dict}/clip_val_pred_${c}.txt
        ${svmprop_classify} ${res_dict}/${val_prop_file} ${res_dict}/${clipbal_prop_model}_${c}.dat ${res_dict}/clipbal_val_pred_${c}.txt
 
-       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/val_pred_${c}.txt -c ${c} >> ${res_dict}/naive.txt
-       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/bal_val_pred_${c}.txt -c ${c} >> ${res_dict}/balance.txt
-       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/clip_val_pred_${c}.txt -c ${c} >> ${res_dict}/clip.txt
-       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/clipbal_val_pred_${c}.txt -c ${c} >> ${res_dict}/clipbal.txt
+       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/val_pred_${c}.txt -s ${sweep} -c ${c} >> ${res_dict}/naive.txt
+       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/bal_val_pred_${c}.txt -s ${sweep} -c ${c} >> ${res_dict}/balance.txt
+       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/clip_val_pred_${c}.txt -s ${sweep} -c ${c} >> ${res_dict}/clip.txt
+       ${python} -m src.cv ${res_dict}/${val_prop_file} ${res_dict}/clipbal_val_pred_${c}.txt -s ${sweep} -c ${c} >> ${res_dict}/clipbal.txt
     done
          naive_c=$(${python} -m src.select_cv ${res_dict}/naive.txt)
          bal_c=$(${python} -m src.select_cv ${res_dict}/balance.txt)

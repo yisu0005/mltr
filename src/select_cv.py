@@ -1,5 +1,8 @@
 import argparse
 
+'''
+perform cross-validation on rank_SVM hyperparameter C
+'''
 
 def main():
     parser = argparse.ArgumentParser()
@@ -22,4 +25,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()  
+    main()

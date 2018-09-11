@@ -1,5 +1,9 @@
 from .click_log import *
 
+'''
+Skyline performance of a ranker
+'''
+
 def read_reldocs(querypath, scorepath):
     with open(querypath, 'r') as f, open(scorepath, 'r') as g:
         lines = f.readlines()

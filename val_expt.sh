@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+'''
+evaluation: bias and variance tradeoff for 4 different estimatos.
+'''
+
 set -e
 
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
@@ -19,9 +24,8 @@ run()
 }
 
 
-#for train_size in 2000 4000 6000 8000 10000 15000 20000 30000 50000 100000; do
-for train_size in 2000; do
-  for r in 2; do
-    run "sh ./var_cal.sh $train_size $r"
+for sweep in 1; do
+  for r in 1; do
+    run "sh ./var_cal.sh $sweep $r"
   done
 done

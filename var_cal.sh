@@ -19,15 +19,16 @@ svmprop_classify='svm_proprank/svm_proprank_classify'
 eta=0.8
 eps_plus=1
 eps_minus=0
-train_size=$1
-per_iter=5000
-sweep=$((${train_size}%${per_iter}?${train_size}/${per_iter}+1:${train_size}/${per_iter}))
-r=$2 # ranker type
-ranker_dict='data/expt/var'/0.01_0.01_0
-iter_dict=${ranker_dict}/${eta}_${eps_minus}_${train_size}/${r}
-res_dict=${iter_dict}/'lastone'
+train_size=1000
+sweep=$1
+per_iter=1000
+# sweep=$((${train_size}%${per_iter}?${train_size}/${per_iter}+1:${train_size}/${per_iter}))
+r=$2
+ranker_dict='data/expt/var_sweep'/0.01_0.01_0
+iter_dict=${ranker_dict}/${eta}_${eps_minus}_${sweep}/${r}
+res_dict=${iter_dict}/'portion'
 
-
+#
 ${python} -m src.util ${train_data} ${iter_dict} -n 'rankerA_query' 'rankerB_query' 'left_query' ⁠⁠\
                                               -pr 0.01 0.01 0
 ${svm_learn} -c 2 ${iter_dict}/rankerA_query.txt ${iter_dict}/modelA.dat > /dev/null
@@ -40,7 +41,7 @@ ${svm_classify} ${test_data} ${iter_dict}/modelC.dat ${iter_dict}/predictionsC.t
 ${python} -m src.test_perf ${test_data} ${iter_dict}/predictionsC.txt >> ${iter_dict}/testperf.txt
 
 for i in $(seq 1 30); do
-  echo "train_size: ${train_size}"
+  echo "sweep: ${sweep}"
   echo "iter: ${i}"
 	${python} -m src.click_log ${test_data} ${iter_dict}/predictionsA.txt ${iter_dict}/predictionsB.txt \
 	                       ${r} ${iter_dict} prop_file.txt bal_prop_file.txt clip_prop_file.txt clipbal_prop_file.txt -e ${eta} \
@@ -48,8 +49,8 @@ for i in $(seq 1 30); do
 
 	${svm_classify} ${res_dict}/prop_file.txt ${iter_dict}/modelC.dat ${iter_dict}/predictionsCp.txt
 
-	${python} -m src.cv ${res_dict}/prop_file.txt ${iter_dict}/predictionsCp.txt >> ${iter_dict}/naive.txt
-	${python} -m src.cv ${res_dict}/bal_prop_file.txt ${iter_dict}/predictionsCp.txt >> ${iter_dict}/balance.txt
-	${python} -m src.cv ${res_dict}/clip_prop_file.txt ${iter_dict}/predictionsCp.txt >> ${iter_dict}/clip.txt
-	${python} -m src.cv ${res_dict}/clipbal_prop_file.txt ${iter_dict}/predictionsCp.txt >> ${iter_dict}/clipbal.txt
+	${python} -m src.cv ${res_dict}/prop_file.txt ${iter_dict}/predictionsCp.txt -s ${sweep} >> ${iter_dict}/naive.txt
+	${python} -m src.cv ${res_dict}/bal_prop_file.txt ${iter_dict}/predictionsCp.txt -s ${sweep} >> ${iter_dict}/balance.txt
+	${python} -m src.cv ${res_dict}/clip_prop_file.txt ${iter_dict}/predictionsCp.txt -s ${sweep} >> ${iter_dict}/clip.txt
+	${python} -m src.cv ${res_dict}/clipbal_prop_file.txt ${iter_dict}/predictionsCp.txt -s ${sweep} >> ${iter_dict}/clipbal.txt
 done

@@ -1,24 +1,24 @@
 from .click_log import *
 
+'''
+calculate the IPS estimator of ave rel rank
+'''
 
 def read_clickdocs(querypath, scorepath):
     with open(querypath, 'r') as f, open(scorepath, 'r') as g:
-        lines = f.readlines()
-        scores = g.readlines()
-        number = len(lines)
         ids = set()
         queries = []
-        for i in range(number):
-            if int(lines[i][0]) == 0:
-                info = lines[i].split(" ", 2)
+        for line, score in zip(f, g):
+            if line[0] == '0':
+                info = line.rstrip().split(' ', 2)
                 newid = int(info[1][4:])
                 newdoc = Document(int(info[0]), info[2])
-                newdoc.add_score(float(scores[i].rstrip()))
-            elif int(lines[i][0]) == 1:
-                info = lines[i].split(" ", 3)
+                newdoc.add_score(float(score.rstrip()))
+            elif line[0] == '1':
+                info = line.split(" ", 3)
                 newid = int(info[1][4:])
                 newdoc = Document(int(info[0]), info[3])
-                newdoc.add_score(float(scores[i].rstrip()))
+                newdoc.add_score(float(score.rstrip()))
                 newdoc.set_click(1)
                 newdoc.set_cost(float(info[2][5:]))
             if newid not in ids:
@@ -30,7 +30,7 @@ def read_clickdocs(querypath, scorepath):
                 queries[-1].add_doc(newdoc)
     return queries
 
-def ips_avg_rank(queries):
+def ips_avg_rank(queries, sweep):
     result = 0
     num = 0
     for query in queries:
@@ -38,12 +38,13 @@ def ips_avg_rank(queries):
         for doc in query.docs:
             if doc.click == 1:
                 result += doc.cost * doc.rank
-    return result/num
+    return result/(6983*sweep*2)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('query_path', help='query path')
     parser.add_argument('score_path', help='prediction path')
+    parser.add_argument('-s', help='number of sweeps', type=int)
     parser.add_argument('-c', '--c', default=0, help='hyperparameter value c')
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -52,7 +53,7 @@ def main():
     for i in range(len(queries)):
         query_rank(queries[i])
 
-    ips_result = ips_avg_rank(queries)
+    ips_result = ips_avg_rank(queries, FLAGS.s)
     print("{}:{}".format(FLAGS.c, ips_result))
 
 
